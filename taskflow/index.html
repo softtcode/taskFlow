@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>TaskFlow</title>
+  <meta name="description" content="Gerenciador de tarefas com dashboard, kanban, calendário e estatísticas." />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%234f46e5'/%3E%3Cpath d='M9 16.5l4.5 4.5L23 11.5' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
+
+  <!-- Fonte: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <!--
+    Aplica o tema ANTES da primeira pintura, para a página não "piscar" branca
+    quando o usuário escolheu o modo escuro. A lógica completa fica em js/core/theme.js.
+  -->
+  <script>
+    (function () {
+      try {
+        var saved = JSON.parse(localStorage.getItem('taskflow:v1:settings')) || {};
+        var systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var dark = saved.theme === 'dark' || ((!saved.theme || saved.theme === 'system') && systemDark);
+        document.documentElement.classList.toggle('dark', dark);
+      } catch (error) { /* ignora: usa o tema claro */ }
+    })();
+  </script>
+
+  <!-- Tailwind via CDN (ótimo para estudar/prototipar; veja o README para usar a CLI em produção) -->
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="js/tailwind.config.js"></script>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+
+<body class="h-screen overflow-hidden bg-app font-sans text-ink antialiased">
+  <a href="#main" class="skip-link">Pular para o conteúdo</a>
+
+  <!-- Indicador de carregamento inicial (removido por js/main.js) -->
+  <div id="app-loader" class="fixed inset-0 z-[100] flex items-center justify-center bg-app transition-opacity duration-300" role="status" aria-label="Carregando">
+    <div class="h-8 w-8 animate-spin rounded-full border-2 border-line border-t-accent"></div>
+  </div>
+
+  <noscript>
+    <p class="p-6 text-center">O TaskFlow precisa de JavaScript para funcionar. Ative-o no navegador e recarregue a página.</p>
+  </noscript>
+
+  <div class="app-shell flex">
+
+    <!-- ========== SIDEBAR (desktop/tablet) ========== -->
+    <aside id="sidebar" class="sidebar hidden w-64 shrink-0 flex-col border-r border-line bg-surface md:flex" aria-label="Menu lateral">
+      <div class="sidebar-brand flex h-16 items-center gap-3 px-5">
+        <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent text-white">
+          <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+        </span>
+        <span class="nav-label text-lg font-semibold tracking-tight">TaskFlow</span>
+      </div>
+
+      <nav id="sidebar-nav" class="flex-1 space-y-1 px-3 py-2" aria-label="Seções"></nav>
+
+      <div class="border-t border-line p-3">
+        <button id="sidebar-toggle" type="button" class="nav-link flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-mute transition hover:bg-subtle hover:text-ink" aria-expanded="true" title="Recolher menu (B)">
+          <span data-icon="panel-left" data-icon-class="h-[18px] w-[18px] shrink-0"></span>
+          <span class="nav-label">Recolher menu</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- ========== COLUNA PRINCIPAL ========== -->
+    <div class="flex min-w-0 flex-1 flex-col">
+
+      <!-- Header: título da página, busca e ações rápidas -->
+      <header class="shrink-0 border-b border-line bg-surface/80 px-4 py-3 backdrop-blur sm:px-6 lg:px-8">
+        <div class="mx-auto flex max-w-6xl flex-wrap items-center gap-x-3 gap-y-3">
+          <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-white md:hidden" aria-hidden="true">
+            <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+          </span>
+          <h1 id="page-title" class="text-lg font-semibold tracking-tight">Dashboard</h1>
+
+          <!-- Busca global: filtra a lista de tarefas pelo nome -->
+          <div class="order-last w-full sm:order-none sm:ml-auto sm:w-72 lg:w-80">
+            <label for="global-search" class="sr-only">Buscar tarefas pelo nome</label>
+            <div class="relative">
+              <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-mute" data-icon="search"></span>
+              <input id="global-search" type="search" placeholder="Buscar tarefas" autocomplete="off"
+                class="peer w-full rounded-lg border border-line bg-subtle py-2 pl-9 pr-9 text-sm text-ink placeholder:text-mute/80 transition focus:border-accent focus:bg-surface focus:outline-none focus:ring-2 focus:ring-accent/25" />
+              <kbd class="pointer-events-none absolute right-2.5 top-1/2 hidden -translate-y-1/2 rounded border border-line bg-surface px-1.5 text-[11px] text-mute sm:peer-placeholder-shown:block">/</kbd>
+              <button id="search-clear" type="button" aria-label="Limpar busca"
+                class="absolute right-1.5 top-1/2 hidden h-6 w-6 -translate-y-1/2 items-center justify-center rounded text-mute hover:text-ink peer-[:not(:placeholder-shown)]:flex">
+                <span data-icon="x" data-icon-class="h-4 w-4"></span>
+              </button>
+            </div>
+          </div>
+
+          <div class="ml-auto flex items-center gap-2 sm:ml-0">
+            <button id="theme-toggle" type="button" class="inline-flex h-9 w-9 items-center justify-center rounded-lg text-mute transition hover:bg-subtle hover:text-ink" aria-label="Alternar entre tema claro e escuro" title="Alternar tema (T)">
+              <span class="dark:hidden" data-icon="moon" data-icon-class="h-[18px] w-[18px]"></span>
+              <span class="hidden dark:inline" data-icon="sun" data-icon-class="h-[18px] w-[18px]"></span>
+            </button>
+            <button id="new-task-btn" type="button" class="inline-flex items-center gap-2 rounded-lg bg-accent px-3 py-2 text-sm font-medium text-white shadow-sm transition hover:brightness-110 active:scale-[.98] sm:px-3.5" title="Nova tarefa (N)">
+              <span data-icon="plus" data-icon-class="h-4 w-4"></span>
+              <span class="hidden sm:inline">Nova tarefa</span>
+              <span class="sr-only sm:hidden">Nova tarefa</span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <!-- Conteúdo: uma <section> por tela. O roteador mostra apenas uma por vez. -->
+      <main id="main" tabindex="-1" class="min-h-0 flex-1 overflow-y-auto focus:outline-none">
+        <div class="mx-auto max-w-6xl px-4 py-6 pb-28 sm:px-6 md:pb-10 lg:px-8">
+          <section id="view-dashboard" data-view="dashboard" aria-labelledby="page-title" hidden></section>
+          <section id="view-tasks" data-view="tasks" aria-labelledby="page-title" hidden></section>
+          <section id="view-calendar" data-view="calendar" aria-labelledby="page-title" hidden></section>
+          <section id="view-stats" data-view="stats" aria-labelledby="page-title" hidden></section>
+          <section id="view-settings" data-view="settings" aria-labelledby="page-title" hidden></section>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- Navegação inferior (mobile) -->
+  <nav id="mobile-nav" class="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden" aria-label="Seções"></nav>
+
+  <!-- Toasts -->
+  <div id="toast-root" class="pointer-events-none fixed bottom-20 right-4 z-[60] flex w-[calc(100%-2rem)] flex-col gap-2 sm:w-96 md:bottom-6" aria-live="polite"></div>
+
+  <!-- dist/app.js é gerado por "node build.mjs" a partir dos módulos em js/. Script comum: abre direto do disco, sem servidor. -->
+  <script src="dist/app.js" defer></script>
+</body>
+</html>

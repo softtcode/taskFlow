@@ -1,0 +1,140 @@
+/*
+  styles.css — apenas o que o Tailwind não resolve bem sozinho:
+  variáveis de tema, animações, <dialog>, sidebar recolhida e estados de arrastar/soltar.
+  Todo o resto do visual está nas classes Tailwind (veja js/ui/classes.js).
+*/
+
+/* ============ 1. TEMA (variáveis em "R G B" para o Tailwind aplicar opacidade) ============ */
+:root {
+  --c-bg: 248 249 251;
+  --c-surface: 255 255 255;
+  --c-subtle: 241 243 246;
+  --c-line: 228 231 236;
+  --c-ink: 17 24 39;
+  --c-mute: 107 114 128;
+
+  /* A cor de destaque é definida em runtime por js/core/theme.js */
+  --accent-base: 79 70 229;
+  --accent-light: 129 140 248;
+  --accent: var(--accent-base);
+  --accent-ink: var(--accent-base);
+}
+
+.dark {
+  --c-bg: 11 12 15;
+  --c-surface: 20 21 26;
+  --c-subtle: 30 32 39;
+  --c-line: 42 45 54;
+  --c-ink: 236 238 243;
+  --c-mute: 148 154 168;
+  --accent-ink: var(--accent-light); /* texto na cor de destaque precisa de mais brilho no escuro */
+}
+
+html { color-scheme: light; }
+html.dark { color-scheme: dark; }
+
+/* ============ 2. BASE ============ */
+.app-shell { height: 100vh; height: 100dvh; }
+
+:focus-visible {
+  outline: 2px solid rgb(var(--accent));
+  outline-offset: 2px;
+}
+
+::selection { background: rgb(var(--accent) / 0.25); }
+
+main { scrollbar-width: thin; scrollbar-color: rgb(var(--c-line)) transparent; }
+
+input[type="search"]::-webkit-search-cancel-button { display: none; }
+
+.skip-link {
+  position: absolute; left: 0.75rem; top: -4rem; z-index: 200;
+  padding: 0.5rem 0.75rem; border-radius: 0.5rem;
+  background: rgb(var(--accent)); color: #fff; font-size: 0.875rem;
+  transition: top 0.15s;
+}
+.skip-link:focus { top: 0.75rem; }
+
+/* ============ 3. ANIMAÇÕES ============ */
+@keyframes view-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: none; }
+}
+.view-enter { animation: view-in 0.22s ease-out both; }
+
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+@keyframes dialog-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes toast-out {
+  to { opacity: 0; transform: translateX(12px); }
+}
+.toast-enter { animation: toast-in 0.2s ease-out both; }
+.toast-leave { animation: toast-out 0.16s ease-in both; }
+
+/* ============ 4. SIDEBAR ============ */
+.sidebar { transition: width 0.2s ease; }
+.sidebar[data-collapsed="true"] { width: 4.5rem; }
+.sidebar[data-collapsed="true"] .nav-label { display: none; }
+.sidebar[data-collapsed="true"] .nav-link { justify-content: center; }
+.sidebar[data-collapsed="true"] .sidebar-brand { justify-content: center; padding-inline: 0; }
+
+.nav-link[aria-current="page"] {
+  background: rgb(var(--accent) / 0.1);
+  color: rgb(var(--accent-ink));
+}
+
+.mobile-link { color: rgb(var(--c-mute)); }
+.mobile-link[aria-current="page"] { color: rgb(var(--accent-ink)); }
+.mobile-link[aria-current="page"] .mobile-pill { background: rgb(var(--accent) / 0.12); }
+
+/* ============ 5. <dialog> NATIVO (modal acessível: foco preso, Esc fecha) ============ */
+dialog.app-dialog {
+  padding: 0; border: 0; margin: auto;
+  background: transparent; color: rgb(var(--c-ink));
+  width: calc(100% - 2rem);
+  max-height: calc(100dvh - 2rem);
+  overflow: visible;
+}
+dialog.app-dialog[open] { animation: dialog-in 0.18s ease-out; }
+dialog.app-dialog::backdrop {
+  background: rgb(0 0 0 / 0.45);
+  backdrop-filter: blur(2px);
+}
+dialog.app-dialog[open]::backdrop { animation: fade-in 0.18s ease-out; }
+
+/* ============ 6. AÇÕES QUE APARECEM NO HOVER (e sempre visíveis em telas touch) ============ */
+.reveal-actions { opacity: 1; transition: opacity 0.15s; }
+@media (hover: hover) {
+  .reveal-actions { opacity: 0; }
+  .group:hover .reveal-actions,
+  .group:focus-within .reveal-actions { opacity: 1; }
+}
+
+/* ============ 7. CALENDÁRIO ============ */
+.cal-cell:nth-child(7n) { border-right-width: 0; }
+
+/* ============ 8. ARRASTAR E SOLTAR ============ */
+.is-dragging { opacity: 0.4; }
+.drop-active {
+  outline: 2px dashed rgb(var(--accent) / 0.6);
+  outline-offset: -2px;
+  background: rgb(var(--accent) / 0.06);
+}
+
+/* ============ 9. ACESSIBILIDADE: respeita "reduzir movimento" ============ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
